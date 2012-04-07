@@ -1,0 +1,117 @@
+#!/usr/bin/env ruby
+
+require 'yaml'
+require 'ljclient'
+
+# attempt to determine home directory
+def home
+  if not ENV['HOME'].nil?
+    ENV['HOME']+"/"
+  elsif not ENV['USERPROFILE'].nil?
+    ENV['USERPROFILE']+"\\"
+  else
+    nil
+  end
+end
+
+# draw a 'box' around returned status messages
+def box(text)
+  size = [text.length,60].min
+  '-'*size + "\n" + text + "\n" + '-'*size
+end
+
+# -- execution starts here --
+
+# load configuration file
+begin
+  config = YAML.load(File.open("#{home}.ljpostrc"))
+rescue
+  abort box("Error reading configuration file '#{home}.ljpostrc'")
+end
+
+do_markdown = config.has_key?('markdown') ? bool(config['markdown']) : false
+if do_markdown
+  require 'rdiscount'
+end
+
+# read post into string 'event'
+event = String.new
+headers = String.new
+header_read = false
+header_delims = 0
+$<.each do |line|
+  if header_read
+    event << line.sub('<!-- more -->', '<lj-cut text="Read more...">')
+  else
+    line.strip!
+    if line.length > 0
+      if line.include?(":")
+        headers << line + "\n"
+      else
+        if line == '---'
+          header_delims =+ header_delims
+          header_read = true if header_delims == 2
+        else
+          header_read = true
+          event << line
+        end
+      end
+    else
+      header_read = true
+    end
+  end
+end
+if event.length < 1
+  abort box("No event text processed, aborting")
+end
+
+field = YAML.load(headers)
+
+# process markup if specified in config file
+metadata = Hash.new
+preformatted = field.has_key?('preformatted') ?
+  bool(field['preformatted']) : false
+abort box("Bad 'preformatted' value") if preformatted.nil?
+if do_markdown && !preformatted
+  event = RDiscount.new(event, :smart).to_html
+  preformatted = true
+end
+
+metadata['picture_keyword'] = field['picture'] if field.has_key?('picture')
+metadata['current_mood'] = field['mood'] if field.has_key?('mood')
+metadata['current_music'] = field['music'] if field.has_key?('music')
+
+begin
+  # initialize server object
+  server = LiveJournal::Client.new(config['host'])
+  if server.login(config['username'], config['password'])
+    puts box(server.message)
+  end
+
+  if field.has_key?('date')
+    dt = DateTime.parse(field['date'])
+  else
+    dt = Time.now
+  end
+  
+  field['subject'] ||= field['title']
+  field['subject'] ||= ''
+  
+  args = {
+    :subject => field['subject'],
+    :journal => field['journal'],
+    :metadata => metadata,
+    :preformatted => preformatted,
+    :date => dt
+  }
+  args[:backdated] = field['backdated'] if field['backdated']
+  args[:security] = field['security'] if field['security']
+  args[:comments] = field['comments'] if field['comments']
+  args[:email] = field['email'] if field['email']
+  
+  server.postevent(event, args)
+  puts box('Posted!')
+  
+rescue LiveJournal::LjException => e
+  puts box("Error: #{e.err}")
+end
