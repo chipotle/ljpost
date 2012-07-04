@@ -74,6 +74,9 @@ field = YAML.load(headers)
 metadata = Hash.new
 preformatted = field.has_key?('preformatted') ?
   bool(field['preformatted']) : false
+if config.has_key?('footer')
+  event << "\n\n" + config['footer'] + "\n"
+end
 if do_markdown && !preformatted
   event = RDiscount.new(event, :smart).to_html
   preformatted = true
