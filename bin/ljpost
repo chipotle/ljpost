@@ -1,6 +1,8 @@
 #!/usr/bin/env ruby
 
 require 'yaml'
+require 'rubygems'
+gem 'ljclient'
 require 'ljclient'
 
 # attempt to determine home directory
@@ -31,6 +33,7 @@ end
 
 do_markdown = config.has_key?('markdown') ? bool(config['markdown']) : false
 if do_markdown
+  gem 'rdiscount'
   require 'rdiscount'
 end
 
