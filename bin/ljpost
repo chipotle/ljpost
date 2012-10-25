@@ -52,7 +52,7 @@ $<.each do |line|
         headers << line + "\n"
       else
         if line == '---'
-          header_delims =+ header_delims
+          header_delims += 1
           header_read = true if header_delims == 2
         else
           header_read = true
