@@ -21,7 +21,7 @@ This should install both the library and the command-line client.
 Create a config file named `~/.ljpostrc`, a YAML file consisting of three
 required directives and one optional directive:
 
-    hostname: www.livejournal.com (or compatible site)
+    host: www.livejournal.com (or compatible site)
     username: your_username
     password: your_password
     markdown: on|off
